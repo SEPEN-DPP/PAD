@@ -301,7 +301,7 @@
 
 <!-- ════════════ BARRA SUPERIOR ════════════ -->
 <header class="topo">
-  <img src="../gerador-oficios-v2/assets/brasao.png" alt="Brasão SC" onerror="this.style.display='none'">
+  <img src="assets/brasao.png" alt="Brasão SC" onerror="this.style.display='none'">
   <div class="topo-titulo">
     <h1>📋 Gerador de PAD — CPEN</h1>
     <p>Procedimento Administrativo Disciplinar · Polícia Penal de Santa Catarina</p>
@@ -578,6 +578,23 @@
   </div>
 </div>
 
+<!-- Modal: Ver Peças do PAD (Andamento do PAD) -->
+<div id="modalVerPecasBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;max-width:600px;width:95%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.2);overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#0f766e,#0d9488);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="color:#fff;font-size:.95rem;font-weight:800;" id="modal-ver-pecas-titulo">Peças do PAD</div>
+        <div style="color:#ccfbf1;font-size:.75rem;margin-top:2px;">Documentos disponíveis no dossiê</div>
+      </div>
+      <button onclick="document.getElementById('modalVerPecasBg').style.display='none'"
+        style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1rem;width:28px;height:28px;border-radius:6px;cursor:pointer;">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:16px 20px;" id="modal-ver-pecas-corpo">
+      <div style="text-align:center;padding:30px;color:#a8a29e;">⏳ Carregando…</div>
+    </div>
+  </div>
+</div>
+
 <!-- Mini-modal: gerar link para advogado (Andamento do PAD) -->
 <div id="modalGerarLinkBg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;max-width:480px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2);overflow:hidden;">
@@ -792,34 +809,38 @@
     </div>
 
     <!-- Tela 1: opções de defesa -->
-    <div id="modal-adv-opcoes" style="padding:20px 22px 22px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px;">
+    <div id="modal-adv-opcoes" style="padding:20px 22px 18px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
         <button onclick="_modalAdvSim()"
-          style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 12px;background:#fff;border:2px solid #2563eb;border-radius:12px;cursor:pointer;font-family:inherit;transition:all .15s;">
+          style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 12px;background:#fff;border:2px solid #2563eb;border-radius:12px;cursor:pointer;font-family:inherit;transition:all .15s;">
           <span style="font-size:2rem;">👨‍⚖️</span>
           <span style="font-size:.88rem;font-weight:800;color:#1d4ed8;">Advogado Constituído</span>
           <span style="font-size:.72rem;color:#64748b;text-align:center;">Indicado pelo incidentado</span>
         </button>
         <button onclick="_modalDefensoria()"
-          style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 12px;background:#fff;border:2px solid #15803d;border-radius:12px;cursor:pointer;font-family:inherit;transition:all .15s;">
+          style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 12px;background:#fff;border:2px solid #15803d;border-radius:12px;cursor:pointer;font-family:inherit;transition:all .15s;">
           <span style="font-size:2rem;">🏛️</span>
           <span style="font-size:.88rem;font-weight:800;color:#15803d;">Defensoria Pública</span>
           <span style="font-size:.72rem;color:#64748b;text-align:center;">Defensor nomeado pelo Estado</span>
         </button>
       </div>
+      <button onclick="_modalSemVincular()"
+        style="width:100%;padding:10px;background:none;border:1.5px dashed #d1d5db;border-radius:8px;font-size:.82rem;color:#6b7280;cursor:pointer;font-family:inherit;">
+        ⏭ Continuar sem vincular defensor por enquanto
+      </button>
     </div>
 
-    <!-- Tela 2: Selecionar advogado cadastrado ou digitar -->
+    <!-- Tela 2: Buscar e selecionar advogado -->
     <div id="modal-adv-vincular" style="display:none;padding:20px 22px 22px;">
-      <div style="margin-bottom:14px;">
-        <label style="display:block;font-size:.75rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Advogado cadastrado no sistema</label>
-        <select id="modal-adv-select" style="width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.88rem;font-family:inherit;color:#1c1917;"
-          onchange="_modalAdvSelectChange(this.value)">
-          <option value="">— Selecione ou preencha abaixo —</option>
-        </select>
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:.75rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Buscar advogado cadastrado</label>
+        <input type="text" id="modal-adv-busca" placeholder="🔍 Digite qualquer parte do nome ou OAB…"
+          style="width:100%;padding:9px 11px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.85rem;font-family:inherit;box-sizing:border-box;"
+          oninput="_modalAdvBuscar(this.value)">
+        <div id="modal-adv-resultados" style="margin-top:6px;max-height:140px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;display:none;"></div>
       </div>
-      <div style="text-align:center;font-size:.75rem;color:#a8a29e;margin-bottom:12px;">— ou informe manualmente —</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="text-align:center;font-size:.75rem;color:#a8a29e;margin-bottom:10px;">— ou informe manualmente —</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <div>
           <label style="display:block;font-size:.72rem;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:4px;">Nome do Advogado</label>
           <input type="text" id="modal-adv-nome" placeholder="Dr(a). Nome Sobrenome"
@@ -838,7 +859,7 @@
         </button>
         <button onclick="_modalAdvConfirmar()"
           style="flex:2;padding:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:8px;font-size:.88rem;font-weight:800;cursor:pointer;font-family:inherit;">
-          Vincular e Continuar →
+          Vincular →
         </button>
       </div>
     </div>
@@ -1041,34 +1062,17 @@ window._iniciarNovoFormulario = function() {
     }
   }
 
-  /* Abre modal de advogado */
-  var bg = document.getElementById('modalAdvBg');
-  if (bg) { bg.style.display = 'flex'; }
-  document.getElementById('modal-adv-opcoes').style.display  = '';
-  document.getElementById('modal-adv-vincular').style.display = 'none';
-
-  /* Popula select com advogados cadastrados (se Firebase disponível) */
-  var sel = document.getElementById('modal-adv-select');
-  if (sel && window.PadFirestore) {
-    sel.innerHTML = '<option value="">Carregando…</option>';
-    window.PadFirestore.listarAdvogados().then(function(lista) {
-      sel.innerHTML = '<option value="">— Selecione ou preencha abaixo —</option>'
-        + lista.map(function(adv) {
-            return '<option value="' + _esc(adv.oab) + '" data-nome="' + _esc(adv.nome) + '">'
-              + _esc(adv.nome) + ' — OAB ' + _esc(adv.oab) + '</option>';
-          }).join('');
-    }).catch(function() {
-      sel.innerHTML = '<option value="">— Preencha manualmente abaixo —</option>';
-    });
-  } else if (sel) {
-    sel.innerHTML = '<option value="">— Preencha manualmente abaixo —</option>';
-  }
+  /* Vai direto ao formulário — defesa será indicada no Termo de Cientificação */
+  _irParaFormulario();
 };
 
-/* Modal: clicou SIM */
+/* Modal: clicou Advogado Constituído */
 window._modalAdvSim = function() {
   document.getElementById('modal-adv-opcoes').style.display  = 'none';
   document.getElementById('modal-adv-vincular').style.display = '';
+  document.getElementById('modal-adv-busca').value = '';
+  document.getElementById('modal-adv-resultados').style.display = 'none';
+  document.getElementById('modal-adv-resultados').innerHTML = '';
 };
 
 /* Modal: clicou Defensoria Pública */
@@ -1077,8 +1081,18 @@ window._modalDefensoria = function() {
   Estado.setNested('defesa.tipo',    'defensoria');
   Estado.setNested('defesa.advNome', '');
   Estado.setNested('defesa.advOab',  '');
+  FormularioCtrl.sincronizar();
   _toast('Defensoria Pública vinculada.');
-  _irParaFormulario();
+};
+
+/* Modal: continuar sem vincular */
+window._modalSemVincular = function() {
+  document.getElementById('modalAdvBg').style.display = 'none';
+  Estado.setNested('defesa.tipo',    '');
+  Estado.setNested('defesa.advNome', '');
+  Estado.setNested('defesa.advOab',  '');
+  FormularioCtrl.sincronizar();
+  _toast('Defensor não vinculado por enquanto.');
 };
 
 /* _modalAdvNao removido — incidentado sempre terá defesa constituída */
@@ -1107,21 +1121,43 @@ window._reabrirModalDefesa = function() {
     document.getElementById('modal-adv-opcoes').style.display  = '';
     document.getElementById('modal-adv-vincular').style.display = 'none';
     bg.style.display = 'flex';
-    /* Pré-popula lista de advogados */
-    var sel = document.getElementById('modal-adv-select');
-    if (sel && window.PadFirestore) {
-      sel.innerHTML = '<option value="">Carregando…</option>';
-      window.PadFirestore.listarAdvogados().then(function(lista) {
-        sel.innerHTML = '<option value="">— Selecione ou preencha abaixo —</option>'
-          + lista.map(function(adv) {
-              return '<option value="' + _esc(adv.oab) + '" data-nome="' + _esc(adv.nome) + '" data-email="' + _esc(adv.email||'') + '">'
-                + _esc(adv.nome) + ' — OAB ' + _esc(adv.oab) + '</option>';
-            }).join('');
-      }).catch(function() {
-        sel.innerHTML = '<option value="">— Preencha manualmente abaixo —</option>';
-      });
-    }
   }
+};
+
+/* Busca advogados no modal (por qualquer parte do nome) */
+var _modalBuscaTimer = null;
+window._modalAdvBuscar = function(termo) {
+  clearTimeout(_modalBuscaTimer);
+  var res = document.getElementById('modal-adv-resultados');
+  if (!termo || termo.length < 2) { if (res) res.style.display = 'none'; return; }
+  _modalBuscaTimer = setTimeout(function() {
+    if (!window.PadFirestore) return;
+    window.PadFirestore.buscarAdvogados(termo).then(function(lista) {
+      if (!res) return;
+      if (!lista.length) {
+        res.innerHTML = '<div style="padding:8px 12px;font-size:.8rem;color:#6b7280;">Nenhum resultado</div>';
+      } else {
+        res.innerHTML = lista.slice(0,15).map(function(adv) {
+          var oabEsc  = _esc(adv.oab  || '');
+          var nomeEsc = _esc(adv.nome || '');
+          return '<div style="padding:8px 12px;font-size:.82rem;cursor:pointer;border-bottom:1px solid #f3f4f6;" '
+            + 'onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'\'" '
+            + 'onclick="_modalAdvSelecionarAdv(' + JSON.stringify(adv.nome||'') + ',' + JSON.stringify(adv.oab||'') + ')">'
+            + '<strong>' + nomeEsc + '</strong>'
+            + (adv.oab ? ' <span style="color:#6b7280;">— OAB ' + oabEsc + '</span>' : '')
+            + '</div>';
+        }).join('');
+      }
+      res.style.display = '';
+    }).catch(function() {});
+  }, 300);
+};
+
+window._modalAdvSelecionarAdv = function(nome, oab) {
+  document.getElementById('modal-adv-nome').value = nome;
+  document.getElementById('modal-adv-oab').value  = oab;
+  var res = document.getElementById('modal-adv-resultados');
+  if (res) res.style.display = 'none';
 };
 
 window._modalAdvConfirmar = function() {
@@ -1135,8 +1171,8 @@ window._modalAdvConfirmar = function() {
   Estado.setNested('defesa.advNome', nome);
   Estado.setNested('defesa.advOab',  oab);
   document.getElementById('modalAdvBg').style.display = 'none';
+  FormularioCtrl.sincronizar();
   _toast('Advogado vinculado: ' + (nome || oab));
-  _irParaFormulario();
 };
 
 /* ══════════════════════════════════════════════
@@ -1489,6 +1525,7 @@ function _carregarPortalDefesa() {
             + '<td>' + _esc(it.dataInst || '—') + '</td>'
             + '<td>' + statusBadge + '</td>'
             + '<td style="white-space:nowrap;">'
+              + '<button class="pad-rel-btn-abrir" style="background:#0f766e;color:#fff;border:none;margin-right:4px;" onclick="_verPecasPad(' + JSON.stringify(padId) + ')">📋 Ver Peças</button>'
               + '<button class="pad-rel-btn-abrir" style="background:#7c3aed;color:#fff;border:none;" onclick="_abrirModalGerarLink(' + itJson + ')">🔗 Enviar ao Advogado</button>'
               + btnReset
             + '</td>'
@@ -1516,6 +1553,62 @@ window._resetarSenhaAdv = function(oabKey, nomeInc) {
   window.PadFirestore.resetarSenhaAdvogado(oabKey)
     .then(function() { _toast('✅ Senha resetada. O advogado precisará criar uma nova senha ao acessar.'); })
     .catch(function(e) { _toast('Erro ao resetar: ' + e.message); });
+};
+
+/* ── Ver Peças do PAD ── */
+var _DOCS_LABEL = [
+  { tipo:'ipen',         ordem:0, label:'i-PEN (Cadastro Inicial)' },
+  { tipo:'portaria',     ordem:1, label:'1. Portaria de Instauração' },
+  { tipo:'doc_inicial',  ordem:2, label:'2. Documentação Inicial' },
+  { tipo:'termo_cient',  ordem:3, label:'3. Termo de Cientificação' },
+  { tipo:'oitiva_inc',   ordem:4, label:'4. Oitiva do Incidentado' },
+  { tipo:'oitivas_test', ordem:5, label:'5. Oitiva de Testemunhas' },
+  { tipo:'manifestacao', ordem:6, label:'6. Manifestação Final' },
+  { tipo:'manif_defesa', ordem:7, label:'7. Manifestação da Defesa' },
+  { tipo:'decisao',      ordem:8, label:'8. Decisão' },
+  { tipo:'oficio_vep',   ordem:9, label:'9. Ofício à VEP' },
+  { tipo:'oficio_juiz',  ordem:10, label:'10. Ofício ao Juiz' },
+];
+
+window._verPecasPad = function(padId) {
+  var bg     = document.getElementById('modalVerPecasBg');
+  var titulo = document.getElementById('modal-ver-pecas-titulo');
+  var corpo  = document.getElementById('modal-ver-pecas-corpo');
+  if (titulo) titulo.textContent = 'PAD: ' + padId;
+  if (corpo)  corpo.innerHTML = '<div style="text-align:center;padding:30px;color:#a8a29e;">⏳ Carregando peças…</div>';
+  if (bg) bg.style.display = 'flex';
+
+  if (!window.PadFirestore) {
+    if (corpo) corpo.innerHTML = '<div style="padding:20px;color:#dc2626;">Firebase não disponível.</div>';
+    return;
+  }
+  window.PadFirestore.buscarPecasDoPad(padId).then(function(pecas) {
+    if (!corpo) return;
+    var mapa = {};
+    pecas.forEach(function(p) { mapa[p.tipo] = p; });
+    corpo.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">'
+      + _DOCS_LABEL.map(function(d) {
+          var p = mapa[d.tipo];
+          var ok = !!(p && p.htmlContent);
+          return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:' + (ok ? '#f0fdf4' : '#f9fafb') + ';border:1px solid ' + (ok ? '#bbf7d0' : '#e5e7eb') + ';">'
+            + '<span style="font-size:1.1rem;">' + (ok ? '✅' : '⬜') + '</span>'
+            + '<span style="flex:1;font-size:.85rem;color:' + (ok ? '#166534' : '#9ca3af') + ';font-weight:' + (ok ? '600' : '400') + ';">' + d.label + '</span>'
+            + (ok ? '<button class="pad-rel-btn-abrir" style="font-size:.72rem;padding:4px 10px;" onclick="_verPecaHtml(' + JSON.stringify(p.htmlContent) + ',' + JSON.stringify(d.label) + ')">👁 Ver</button>' : '')
+            + '</div>';
+        }).join('')
+      + '</div>';
+  }).catch(function(e) {
+    if (corpo) corpo.innerHTML = '<div style="padding:20px;color:#dc2626;">Erro: ' + _esc(e.message) + '</div>';
+  });
+};
+
+window._verPecaHtml = function(html, titulo) {
+  var w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write('<!DOCTYPE html><html><head><title>' + titulo + '</title>'
+    + '<style>body{font-family:Arial,sans-serif;padding:20px;max-width:800px;margin:0 auto;}</style>'
+    + '</head><body>' + html + '</body></html>');
+  w.document.close();
 };
 
 /* ── Modal Gerar Link (Andamento do PAD) ── */

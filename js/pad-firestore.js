@@ -180,11 +180,17 @@ window.PadFirestore = {
     if (!emailUnidade) return [];
     const q    = query(
       collection(_db, 'pads_relacao'),
-      where('emailUnidade', '==', emailUnidade),
-      orderBy('ts', 'desc')
+      where('emailUnidade', '==', emailUnidade)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ ...d.data(), _fsId: d.id }));
+    const itens = snap.docs.map(d => ({ ...d.data(), _fsId: d.id }));
+    // Ordena client-side (mais recente primeiro) usando tsAtual ou ts
+    itens.sort((a, b) => {
+      const ta = (a.tsAtual && a.tsAtual.seconds) || (a.ts && a.ts.seconds) || 0;
+      const tb = (b.tsAtual && b.tsAtual.seconds) || (b.ts && b.ts.seconds) || 0;
+      return tb - ta;
+    });
+    return itens;
   },
 
   /* Atualiza status de um PAD na relaÃ§Ã£o */

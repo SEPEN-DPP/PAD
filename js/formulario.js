@@ -355,7 +355,32 @@ var FormularioCtrl = (function() {
 
   /* ── Seção: Termo de Cientificação ── */
   function _secTermoCient(s) {
-    var tc = s.termoCient || {};
+    var tc  = s.termoCient || {};
+    var d   = s.defesa     || {};
+    var tipo = d.tipo || '';
+
+    /* Bloco de vínculo do defensor */
+    var defesaBloco = '';
+    if (tipo === 'advogado') {
+      defesaBloco = '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;">'
+        + '<span>👨‍⚖️</span>'
+        + '<div style="flex:1;font-size:.85rem;"><strong>' + _esc(d.advNome || 'Advogado') + '</strong>'
+          + (d.advOab ? ' &nbsp;|&nbsp; OAB: ' + _esc(d.advOab) : '') + '</div>'
+        + '<button class="btn-add-reed" style="white-space:nowrap;font-size:.75rem;" onclick="_reabrirModalDefesa()">🔄 Alterar</button>'
+        + '</div>';
+    } else if (tipo === 'defensoria') {
+      defesaBloco = '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">'
+        + '<span>🏛️</span>'
+        + '<div style="flex:1;font-size:.85rem;"><strong>Defensoria Pública do Estado de Santa Catarina</strong></div>'
+        + '<button class="btn-add-reed" style="white-space:nowrap;font-size:.75rem;" onclick="_reabrirModalDefesa()">🔄 Alterar</button>'
+        + '</div>';
+    } else {
+      defesaBloco = '<button onclick="_reabrirModalDefesa()" class="btn-add-reed" '
+        + 'style="width:100%;padding:10px;border:1.5px dashed #d1d5db;border-radius:8px;font-size:.83rem;color:#374151;cursor:pointer;">'
+        + '⚖️ Indicar Advogado / Defensoria Pública'
+        + '</button>';
+    }
+
     return '<div class="form-secao">'
       + '<div class="sec-head" onclick="_toggleSec(this)">'
         + '<span class="sec-titulo">📋 Termo de Cientificação</span>'
@@ -364,6 +389,10 @@ var FormularioCtrl = (function() {
       + '</div>'
       + '<div class="sec-corpo">'
         + '<div class="campo-hint" style="margin-bottom:12px;">O documento é gerado automaticamente com os dados do PAD. Imprima, colha a assinatura do apenado e digitalize.</div>'
+        + '<div class="campo-wrap">'
+          + '<label class="campo-label">Vínculo do Defensor</label>'
+          + defesaBloco
+        + '</div>'
         + '<div class="campo-wrap">'
           + '<label class="campo-label">Observações adicionais <span class="opc">(opcional)</span></label>'
           + '<textarea class="inp-textarea" id="inp-termo-cient-obs" rows="2" placeholder="Ex.: interno recusou-se a assinar...">' + _esc(tc.texto||'') + '</textarea>'
