@@ -2116,6 +2116,38 @@ function _aplicarPerfil(user, perfil) {
   _mostrarTela('inicial');
 }
 
+/* ── Detecta unidade pelo e-mail cruzando com unidades.json ── */
+let _unidadesCache = null;
+async function _carregarUnidades() {
+  if (_unidadesCache) return _unidadesCache;
+  try {
+    const res = await fetch('data/unidades.json');
+    const dados = await res.json();
+    _unidadesCache = dados.unidades || [];
+  } catch(_) { _unidadesCache = []; }
+  return _unidadesCache;
+}
+
+function _detectarUnidade(email, unidades) {
+  const DOMINIO = '@pp.sc.gov.br';
+  if (!email.toLowerCase().endsWith(DOMINIO)) return null;
+  const userLocal = email.toLowerCase().replace(DOMINIO, '');
+
+  /* 1. Match exato */
+  let found = unidades.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (found) return found;
+
+  /* 2. E-mail do usuário começa com o código da unidade
+     ex.: pr18dir → pr18, cogridir → cogri
+     Ordena do mais longo para o mais curto para evitar match parcial errado */
+  const sorted = [...unidades].sort((a, b) => b.email.length - a.email.length);
+  found = sorted.find(u => {
+    const unitLocal = u.email.toLowerCase().replace(DOMINIO, '');
+    return unitLocal.length >= 3 && userLocal.startsWith(unitLocal);
+  });
+  return found || null;
+}
+
 /* ── Observa mudanças de autenticação ── */
 onAuthStateChanged(_auth, async function(user) {
   if (!user) {
@@ -2125,9 +2157,31 @@ onAuthStateChanged(_auth, async function(user) {
   try {
     const snap = await getDoc(doc(_db, 'usuarios', user.uid));
     if (!snap.exists()) {
-      /* Pré-preenche e-mail no campo de perfil */
-      const elEmail = document.getElementById('perfil-unidade-email');
-      if (elEmail && !elEmail.value) elEmail.value = user.email;
+      /* Tenta detectar a unidade automaticamente pelo e-mail */
+      const unidades = await _carregarUnidades();
+      const unidade  = _detectarUnidade(user.email, unidades);
+
+      if (unidade) {
+        /* Salva perfil automaticamente e entra no app */
+        const perfil = {
+          email:    user.email,
+          unidade:  {
+            nome:   unidade.nome    || '',
+            email:  unidade.email   || user.email,
+            cidade: unidade.cidade  || '',
+            end:    unidade.end     || '',
+          },
+          diretor:  unidade.diretor || '',
+          criadoEm: serverTimestamp(),
+        };
+        await setDoc(doc(_db, 'usuarios', user.uid), perfil);
+        _aplicarPerfil(user, perfil);
+        return;
+      }
+
+      /* Não encontrou: exibe formulário com campos pré-preenchidos */
+      const elEmailUn = document.getElementById('perfil-unidade-email');
+      if (elEmailUn && !elEmailUn.value) elEmailUn.value = user.email;
       _mostrarTela('perfil');
       return;
     }
