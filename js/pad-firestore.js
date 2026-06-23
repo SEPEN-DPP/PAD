@@ -5,7 +5,7 @@
 import { initializeApp, getApps }
   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc,
-         collection, query, where, orderBy, limit, serverTimestamp }
+         collection, query, where, orderBy, limit, startAfter, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 const _CFG = {
   apiKey:            "AIzaSyB61jtxRJlDu0LhwXOM9c42MEHQWciJh-I",
@@ -28,9 +28,17 @@ function _padKey(numPad) {
   return (numPad || Date.now().toString()).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now();
 }
 
-/* Gera token aleatÃ³rio para o link do advogado */
+/* Gera token aleatório para o link do advogado */
 function _gerarToken() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+}
+
+/* Gera array de palavras do nome para busca por qualquer palavra */
+function _gerarPalavras(nome) {
+  return (nome || '').toUpperCase()
+    .split(/\s+/)
+    .map(p => p.replace(/[^A-ZÀ-Ú0-9]/g, ''))
+    .filter(p => p.length >= 2);
 }
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -97,6 +105,7 @@ window.PadFirestore = {
       email:          (dados.email   || '').toLowerCase(),
       telefone:       dados.tel      || '',
       endereco:       dados.endereco || '',
+      palavras:       _gerarPalavras(dados.nome),
       ativo:          true,
       padsVinculados: [],
       cadastradoEm:   serverTimestamp(),
@@ -105,7 +114,7 @@ window.PadFirestore = {
     return oabKey;
   },
 
-  /* Atualiza campos de um advogado jÃ¡ cadastrado */
+  /* Atualiza campos de um advogado já cadastrado */
   atualizarAdvogado: async function(oabKey, dados) {
     await setDoc(doc(_db, 'advogados', oabKey), {
       nome:         dados.nome     || '',
@@ -113,6 +122,7 @@ window.PadFirestore = {
       telefone:     dados.tel      || '',
       endereco:     dados.endereco || '',
       tipo:         dados.tipo     || 'advogado',
+      palavras:     _gerarPalavras(dados.nome),
       atualizadoEm: serverTimestamp(),
     }, { merge: true });
   },
@@ -208,29 +218,65 @@ window.PadFirestore = {
     return snap.data().textoExtraido || '';
   },
 
-  /* Busca advogados por prefixo de nome ou OAB (mÃ¡x. 40 resultados) */
+  /* Busca advogados por qualquer palavra do nome ou por OAB */
   buscarAdvogados: async function(termo) {
     const t = (termo || '').trim();
     if (!t) return [];
-    const tUp  = t.toUpperCase();
-    const makeQ = (campo, val) => query(
+    const tUp = t.toUpperCase();
+    const sentinel = tUp + '';
+    const qNome = query(
       collection(_db, 'advogados'),
-      where(campo, '>=', val), where(campo, '<=', val + ''),
+      where('nome', '>=', tUp), where('nome', '<=', sentinel),
       limit(40)
     );
-    const [snapNome, snapOab] = await Promise.all([
-      getDocs(makeQ('nome', tUp)),
-      getDocs(makeQ('oab',  tUp)),
+    const qOab = query(
+      collection(_db, 'advogados'),
+      where('oab', '>=', tUp), where('oab', '<=', sentinel),
+      limit(40)
+    );
+    const qPalavra = query(
+      collection(_db, 'advogados'),
+      where('palavras', 'array-contains', tUp),
+      limit(40)
+    );
+    const [snapNome, snapOab, snapPalavra] = await Promise.all([
+      getDocs(qNome), getDocs(qOab), getDocs(qPalavra),
     ]);
     const mapa = {};
-    [...snapNome.docs, ...snapOab.docs].forEach(d => { mapa[d.id] = { id: d.id, ...d.data() }; });
+    [...snapNome.docs, ...snapOab.docs, ...snapPalavra.docs]
+      .forEach(d => { mapa[d.id] = { id: d.id, ...d.data() }; });
     return Object.values(mapa).slice(0, 40);
   },
 
-  /* Lista todos os advogados (legado â€” uso interno) */
+  /* Lista advogados paginados com ordenacao */
+  listarAdvogadosPaginado: async function(campo, ordem, porPagina, ultimoDoc) {
+    campo = campo || 'nome';
+    ordem = ordem || 'asc';
+    porPagina = porPagina || 30;
+    let q = query(
+      collection(_db, 'advogados'),
+      orderBy(campo, ordem),
+      limit(porPagina)
+    );
+    if (ultimoDoc) q = query(
+      collection(_db, 'advogados'),
+      orderBy(campo, ordem),
+      startAfter(ultimoDoc),
+      limit(porPagina)
+    );
+    const snap = await getDocs(q);
+    return {
+      itens: snap.docs.map(d => ({ id: d.id, ...d.data() })),
+      ultimoDoc: snap.docs[snap.docs.length - 1] || null,
+      temMais: snap.docs.length === porPagina,
+    };
+  },
+
+  /* Lista todos os advogados (legado - uso interno) */
   listarAdvogados: async function() {
     const snap = await getDocs(query(collection(_db, 'advogados'), limit(500)));
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
   },
 
   /* Gera novo token de acesso para um PAD jÃ¡ salvo (sem re-salvar o PAD) */

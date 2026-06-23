@@ -108,6 +108,13 @@ function _oabKey(oab) {
   return String(oab||'').replace(/[^a-zA-Z0-9]/g,'_').toUpperCase();
 }
 
+function _gerarPalavras(nome) {
+  return (nome || '').toUpperCase()
+    .split(/\s+/)
+    .map(p => p.replace(/[^A-ZÀ-Ú0-9]/g, ''))
+    .filter(p => p.length >= 2);
+}
+
 window._drop = function(e) {
   e.preventDefault();
   document.querySelector('.zona').style.borderColor = '#d1d5db';
@@ -187,6 +194,7 @@ window._importar = async function() {
           email:     adv.email || '',
           telefone:  adv.tel   || '',
           endereco:  adv.endereco || '',
+          palavras:  _gerarPalavras(adv.nome),
           ativo:     true,
           padsVinculados: [],
           importado: true,

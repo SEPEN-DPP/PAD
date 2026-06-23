@@ -633,6 +633,7 @@
       <input type="text" id="adv-busca" placeholder="🔍 Buscar por nome ou OAB…"
         style="flex:1;min-width:180px;max-width:320px;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:.85rem;font-family:inherit;"
         oninput="_buscarAdvogados(this.value)">
+      <button class="pad-rel-btn-cad" style="background:#f0fdf4;color:#166534;border:1.5px solid #bbf7d0;" onclick="_verTodosAdvogados()">📋 Ver Todos</button>
       <button class="pad-rel-btn-cad" onclick="_abrirFormAdvogado()">+ Novo</button>
     </div>
 
@@ -679,6 +680,15 @@
       </div>
     </div>
 
+    <!-- Controles Ver Todos -->
+    <div id="adv-filtros" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 0 4px;">
+      <span style="font-size:.8rem;color:#6b7280;font-weight:600;">Ordenar por:</span>
+      <button class="adv-filtro-btn sel" id="adv-ord-nome-az" onclick="_ordenarAdv('nome','asc')">A → Z</button>
+      <button class="adv-filtro-btn" id="adv-ord-nome-za" onclick="_ordenarAdv('nome','desc')">Z → A</button>
+      <button class="adv-filtro-btn" id="adv-ord-oab" onclick="_ordenarAdv('oab','asc')">Nº OAB</button>
+      <span style="margin-left:auto;font-size:.78rem;color:#6b7280;" id="adv-total-label"></span>
+    </div>
+
     <!-- Lista de advogados -->
     <div id="adv-lista-wrap" class="pad-rel-corpo">
       <div class="pad-rel-vazio" id="adv-lista-vazio">🔍 Digite ao menos 3 caracteres para buscar.</div>
@@ -696,6 +706,9 @@
         </thead>
         <tbody id="adv-tabela-body"></tbody>
       </table>
+      <div id="adv-carregar-mais" style="display:none;text-align:center;padding:14px 0;">
+        <button class="pad-rel-btn-abrir" style="min-width:160px;" onclick="_carregarMaisAdv()">⬇️ Carregar mais</button>
+      </div>
     </div>
   </div>
 </div>
@@ -880,6 +893,10 @@
     padding: 0;
   }
   .pad-adv-wrap { width: 100%; }
+  #adv-filtros { display:flex; }
+  .adv-filtro-btn { padding:5px 14px;border:1.5px solid #e5e7eb;border-radius:20px;background:#fff;font-size:.78rem;cursor:pointer;font-family:inherit;color:#374151;transition:all .15s; }
+  .adv-filtro-btn:hover { border-color:#2563eb;color:#2563eb; }
+  .adv-filtro-btn.sel { background:#2563eb;color:#fff;border-color:#2563eb; }
   .pad-adv-header {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     padding: 20px 28px; background: #fff;
@@ -1679,6 +1696,11 @@ window._buscarAdvogados = function(termo) {
   var vazio  = document.getElementById('adv-lista-vazio');
   var tabela = document.getElementById('adv-tabela');
   var tbody  = document.getElementById('adv-tabela-body');
+  _verTodosAtivo = false;
+  var filtros = document.getElementById('adv-filtros');
+  if (filtros) filtros.style.display = 'none';
+  var mais = document.getElementById('adv-carregar-mais');
+  if (mais) mais.style.display = 'none';
   if (!termo || termo.length < 3) {
     if (tabela) tabela.style.display = 'none';
     if (vazio) { vazio.style.display = ''; vazio.textContent = '🔍 Digite ao menos 3 caracteres para buscar.'; }
@@ -1703,16 +1725,89 @@ function _recarregarBuscaAtual() {
 
 function _carregarListaAdvogados() { _recarregarBuscaAtual(); }
 
-function _renderListaAdvogados(lista, vazio, tabela, tbody) {
-  if (!lista.length) {
-    if (vazio) { vazio.style.display = ''; vazio.textContent = 'Nenhum resultado encontrado.'; }
+/* ── VER TODOS ── */
+var _verTodosAtivo = false;
+var _verTodosCampo = 'nome';
+var _verTodosOrdem = 'asc';
+var _verTodosUltimoDoc = null;
+var _verTodosTotal = 0;
+
+window._verTodosAdvogados = function() {
+  _verTodosAtivo = true;
+  _verTodosUltimoDoc = null;
+  _verTodosTotal = 0;
+  var busca = document.getElementById('adv-busca');
+  if (busca) busca.value = '';
+  var filtros = document.getElementById('adv-filtros');
+  if (filtros) filtros.style.display = 'flex';
+  _aplicarOrdemAdv('nome', 'asc');
+};
+
+function _aplicarOrdemAdv(campo, ordem) {
+  _verTodosCampo = campo;
+  _verTodosOrdem = ordem;
+  _verTodosUltimoDoc = null;
+  _verTodosTotal = 0;
+  ['adv-ord-nome-az','adv-ord-nome-za','adv-ord-oab'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('sel');
+  });
+  var ativo = campo === 'oab' ? 'adv-ord-oab'
+    : (ordem === 'desc' ? 'adv-ord-nome-za' : 'adv-ord-nome-az');
+  var el = document.getElementById(ativo);
+  if (el) el.classList.add('sel');
+  var tbody = document.getElementById('adv-tabela-body');
+  if (tbody) tbody.innerHTML = '';
+  _carregarPaginaAdv(false);
+}
+
+window._ordenarAdv = function(campo, ordem) { _aplicarOrdemAdv(campo, ordem); };
+
+function _carregarPaginaAdv(acumular) {
+  var vazio  = document.getElementById('adv-lista-vazio');
+  var tabela = document.getElementById('adv-tabela');
+  var mais   = document.getElementById('adv-carregar-mais');
+  if (!acumular) {
+    if (vazio) { vazio.style.display = ''; vazio.textContent = '⏳ Carregando…'; }
     if (tabela) tabela.style.display = 'none';
-    return;
+    if (mais) mais.style.display = 'none';
+  } else {
+    if (mais) mais.style.display = 'none';
   }
-  if (vazio) vazio.style.display = 'none';
-  if (tabela) tabela.style.display = '';
-  if (tbody) {
-    tbody.innerHTML = lista.map(function(adv) {
+  if (!window.PadFirestore) { if (vazio) vazio.textContent = 'Firebase não disponível.'; return; }
+  window.PadFirestore.listarAdvogadosPaginado(_verTodosCampo, _verTodosOrdem, 30, _verTodosUltimoDoc)
+    .then(function(res) {
+      _verTodosUltimoDoc = res.ultimoDoc;
+      _verTodosTotal += res.itens.length;
+      var tbody = document.getElementById('adv-tabela-body');
+      var label = document.getElementById('adv-total-label');
+      if (acumular && tbody) {
+        tbody.innerHTML += _rowsAdvogados(res.itens);
+      } else {
+        var vazio2 = document.getElementById('adv-lista-vazio');
+        var tabela2 = document.getElementById('adv-tabela');
+        if (!res.itens.length) {
+          if (vazio2) { vazio2.style.display = ''; vazio2.textContent = 'Nenhum advogado cadastrado.'; }
+          if (tabela2) tabela2.style.display = 'none';
+        } else {
+          if (vazio2) vazio2.style.display = 'none';
+          if (tabela2) tabela2.style.display = '';
+          if (tbody) tbody.innerHTML = _rowsAdvogados(res.itens);
+        }
+      }
+      if (label) label.textContent = _verTodosTotal + ' exibidos' + (res.temMais ? ' (há mais)' : '');
+      var mais2 = document.getElementById('adv-carregar-mais');
+      if (mais2) mais2.style.display = res.temMais ? '' : 'none';
+    }).catch(function(e) {
+      var vazio3 = document.getElementById('adv-lista-vazio');
+      if (vazio3) { vazio3.style.display = ''; vazio3.textContent = 'Erro: ' + e.message; }
+    });
+}
+
+window._carregarMaisAdv = function() { _carregarPaginaAdv(true); };
+
+function _rowsAdvogados(lista) {
+  return lista.map(function(adv) {
         var tipoBadge = adv.tipo === 'defensoria'
           ? '<span style="background:#dcfce7;color:#166534;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:10px;">🏛️ Defensor</span>'
           : '<span style="background:#dbeafe;color:#1d4ed8;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:10px;">👨‍⚖️ Advogado</span>';
@@ -1741,7 +1836,21 @@ function _renderListaAdvogados(lista, vazio, tabela, tbody) {
           + '</div></td>'
           + '</tr>';
       }).join('');
+}
+
+function _renderListaAdvogados(lista, vazio, tabela, tbody) {
+  if (!lista.length) {
+    if (vazio) { vazio.style.display = ''; vazio.textContent = 'Nenhum resultado encontrado.'; }
+    if (tabela) tabela.style.display = 'none';
+    var mais = document.getElementById('adv-carregar-mais');
+    if (mais) mais.style.display = 'none';
+    return;
   }
+  if (vazio) vazio.style.display = 'none';
+  if (tabela) tabela.style.display = '';
+  if (tbody) tbody.innerHTML = _rowsAdvogados(lista);
+  var mais = document.getElementById('adv-carregar-mais');
+  if (mais) mais.style.display = 'none';
 }
 
 window._abrirPadsAdv = function(oabKey, nome, oab) {
